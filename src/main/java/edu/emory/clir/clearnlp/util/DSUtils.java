@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -33,6 +34,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import edu.emory.clir.clearnlp.clusterExperiment.chameleon.graph.Edge;
 import edu.emory.clir.clearnlp.collection.list.FloatArrayList;
 import edu.emory.clir.clearnlp.collection.pair.DoubleIntPair;
 import edu.emory.clir.clearnlp.collection.pair.Pair;
@@ -490,4 +492,5 @@ public class DSUtils
 		
 		return true;
 	}
+
 }

@@ -22,5 +22,13 @@ public class DenseVector extends Vector {
     public float[] getFloatArray() {
         return vector;
     }
+    
+    public double[] getDoubleArray(){
+    	double[] d = new double[vector.length];
+    	for(int i = 0; i<vector.length; i++){
+    		d[i] = vector[i];
+    	}
+    	return d;
+    }
 
 }
