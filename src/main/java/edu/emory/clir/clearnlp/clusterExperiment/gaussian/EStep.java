@@ -1,6 +1,5 @@
 package edu.emory.clir.clearnlp.clusterExperiment.gaussian;
 
-import java.io.File;
 import java.util.List;
 
 import org.apache.commons.math3.linear.LUDecomposition;
@@ -8,149 +7,179 @@ import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.apache.commons.math3.stat.correlation.Covariance;
 
-import edu.emory.clir.clearnlp.clusterExperiment.Vector.DenseVector;
+import com.carrotsearch.hppc.cursors.IntCursor;
+
 import edu.emory.clir.clearnlp.collection.map.IntDoubleHashMap;
 import edu.emory.clir.clearnlp.collection.map.IntObjectHashMap;
+import edu.emory.clir.clearnlp.collection.pair.ObjectIntPair;
+import edu.emory.clir.clearnlp.collection.set.IntHashSet;
 
 public class EStep {
-
-	private IntObjectHashMap<double[]> mean;
-	private IntObjectHashMap<RealMatrix> sigma;
-	private IntDoubleHashMap prior;
+	
+	private IntObjectHashMap<double[]> means;
+	private IntObjectHashMap<RealMatrix> sigmas;
+	private IntDoubleHashMap priors;
 	private int dimension;
 	private int k;
 
-
+	
+	
+	
 	public EStep(){
-		mean = new IntObjectHashMap<double[]>();
-		sigma = new IntObjectHashMap<RealMatrix>();
-		prior = new IntDoubleHashMap();
+		means = new IntObjectHashMap<double[]>();
+		sigmas = new IntObjectHashMap<>();
+		priors = new IntDoubleHashMap();
+	}
+	
+	
+	public void process(EStepDS clusters){
+		this.k = clusters.getK();
+		this.dimension = 300;
+		calculateMeans(clusters);
+		calculatePriors(clusters);
+		calculateSigmas(clusters);
 	}
 
 
-	public void process(List<List<DenseVector>> clusters){
-		k = clusters.size();
-		getDimension(clusters);
-		calculateMean(clusters);
-		calculateVar(clusters);
-		calculatePrior(clusters);
-	}
-
-
-	private void calculatePrior(List<List<DenseVector>> clusters) {
-		int i,t_instances = 0;
-		for(i = 0; i<k; i++){
-			t_instances+= clusters.get(i).size();
-		}
-		for(i = 0; i<k; i++){
-			prior.put(i, clusters.get(i).size()/t_instances);
-		}
-	}
-
-
-	private void calculateVar(List<List<DenseVector>> clusters) {
-		double[][] matrix;
-		List<DenseVector> cluster;
-		DenseVector dv;
-		int index,size;
+	//Variance of a cluster with a single point??
+	private void calculateSigmas(EStepDS clusters) {
+		double[][] init_matrix;
 		Covariance cv_matrix;
-		for(int i = 0; i<k; i++){
-			cluster = clusters.get(i);
-			size = cluster.size();
+		int size,index;
+		int[] indicies = clusters.getClusterIndicies();
+		for(int i = 0; i<indicies.length; i++){
+			size = clusters.getCluster(indicies[i]).size();
+			init_matrix = new double[dimension][size];
 			index = 0;
-			matrix = new double[size][dimension];
-			for(int j =0; j<size; j++){
-				dv = cluster.get(j);
-				setColumn(matrix,index++,dv.getDoubleArray());
+			for(IntCursor j : clusters.getCluster(indicies[i])){
+				addToColumn(init_matrix,clusters.getVector(j.value),index);
+				index++;
 			}
-			cv_matrix = new Covariance(matrix);
-			sigma.put(i, cv_matrix.getCovarianceMatrix());
+			cv_matrix = new Covariance(init_matrix);
+			sigmas.put(i, cv_matrix.getCovarianceMatrix());
 		}
 	}
 
 
-	private void setColumn(double[][] matrix, int index, double[] doubleArray) {
-		for(int i = 0; i<doubleArray.length; i++){
-			matrix[index][i] = doubleArray[i];
+	
+	private void addToColumn(double[][] init_matrix, double[] vector, int index) {
+		for(int i = 0; i<vector.length; i++){
+			init_matrix[i][index] = vector[i];
 		}
+		
 	}
 
 
-	private void getDimension(List<List<DenseVector>> clusters) {
-		int max = Integer.MIN_VALUE;
-		for(List<DenseVector> cluster:clusters){
-			for(DenseVector vector : cluster){
-				if(vector.getFloatArray().length>max) 
-					max = vector.getFloatArray().length;
+	private void calculateMeans(EStepDS clusters) {
+		double[] mean;
+		int[] indicies = clusters.getClusterIndicies();
+		
+		for(int i = 0; i<indicies.length; i++){
+			mean = new double[dimension];
+			for(IntCursor j : clusters.getCluster(indicies[i])){
+				add(mean,clusters.getVector(j.value));
+			}
+			for(int j = 0; j<mean.length; j++){
+				mean[j] = mean[j] / clusters.getCluster(indicies[i]).size();
+			}
+			means.put(i, mean);
+		}
+		
+	}
+	
+	//Prior = cluster.get(i).size / Total Instances
+	private void calculatePriors(EStepDS clusters) {
+		int i, t_instances = 0;
+		int[] indicies = clusters.getClusterIndicies();
+		for(i= 0; i<indicies.length; i++){
+			t_instances +=clusters.getCluster(indicies[i]).size();
+		}
+		for(i = 0; i<indicies.length; i++){
+			priors.put(indicies[i], clusters.getCluster(indicies[i]).size()/t_instances);
+		}
+	}
+	
+	
+	public int getVectorIndex(int z){
+		int w =  (int) (Math.sqrt(8*z+1)-1)/2;
+		int t =  (int) ((Math.pow(w, 2)+ w)/2);
+		int y = z - t;
+		int x = w - y;
+		return x;
+	}
+	
+	public int getHIndex(int z){
+		int w =  (int) (Math.sqrt(8*z+1)-1)/2;
+		int t =  (int) ((Math.pow(w, 2)+ w)/2);
+		int y = z - t;
+		int x = w - y;
+		return y;
+		
+	}
+	
+	public IntObjectHashMap<IntHashSet> findAllMemberships(EStepDS clusters,double threshold){
+		IntObjectHashMap<IntHashSet> membership_vectors = new IntObjectHashMap<IntHashSet>();
+		double score;
+		IntHashSet set;
+		for(ObjectIntPair<double[]> v_pair : clusters.getVectors()){
+			for(int i =  0; i<k; i++){
+				score = calculateMembership(v_pair.o, i);
+				if(score>threshold) {
+					set = membership_vectors.get(v_pair.i);
+					if(set!= null) set.add(i);
+					else {
+						set = new IntHashSet(); 
+						set.add(i);
+						membership_vectors.put(v_pair.i, set);
+					}
+				}
 			}
 		}
-		dimension = max;
-	}
-
-
-	private void calculateMean(List<List<DenseVector>> clusters) {
-		double[] meanVector;
-		int i,size;
-		for(i= 0; i<k; i++){
-			meanVector = new double[dimension];
-			size = clusters.get(i).size();
-			for(DenseVector vector : clusters.get(i)){
-				add(meanVector,vector.getDoubleArray());
+		set = new IntHashSet();
+		for(ObjectIntPair<IntHashSet> m_pair : membership_vectors){
+			if(m_pair.o.size()<2){
+				set.add(m_pair.i);
 			}
-			for(i = 0; i<meanVector.length; i++){
-				meanVector[i] = meanVector[i] / (size);
-			}
-			mean.put(i, meanVector);
 		}
-
+		for(IntCursor i : set){
+			membership_vectors.remove(i.value);
+		}
+		return membership_vectors;
+	}
+	
+	
+	
+	
+	
+	public double calculateMembership(double[] vector, int c_index){
+		LUDecomposition d_matrix = new LUDecomposition(sigmas.get(c_index));
+		RealMatrix inverse = d_matrix.getSolver().getInverse();
+		double[] x_mean = subtract(vector,means.get(c_index));
+		RealMatrix xm_matrix = MatrixUtils.createRowRealMatrix(x_mean);
+		double determinant = d_matrix.getDeterminant();
+		// 1/ Sqrt of 2pi^dimension * determinant
+		double score = 1/(Math.sqrt(Math.pow(2*Math.PI, dimension)*determinant));
+		RealMatrix xm_t = xm_matrix.transpose().scalarMultiply(-1/2);
+		RealMatrix maha_distance = xm_t.multiply(inverse);
+		maha_distance = maha_distance.multiply(xm_matrix);
+		//Assuming maha dist returns a 1x1 matrix
+		System.out.println(maha_distance.getRowDimension() + " x " +maha_distance.getColumnDimension());
+		score = priors.get(c_index)* score * Math.exp(maha_distance.getTrace());
+		return score;
 	}
 
-
-	private void add(double[] v1, double[] v2) {
+	
+	public void add(double[] v1, double[] v2) {
 		for(int i = 0; i<v2.length; i++){
 			v1[i] += v2[i];
 		}
 	}
-
-
-
-	private double calculateMembershipProb(DenseVector vector, int c_index){
-		LUDecomposition d_matrix = new LUDecomposition(sigma.get(c_index));
-		RealMatrix inverse = d_matrix.getSolver().getInverse();
-		double[] x_mean = subtract(vector.getDoubleArray(),mean.get(c_index));
-		RealMatrix xm_matrix = MatrixUtils.createColumnRealMatrix(x_mean);
-		double determinant = d_matrix.getDeterminant();
-		// 1/ Sqrt of 2pi^dimension * determinant
-		double score = 1/(Math.sqrt(Math.pow(2*Math.PI, dimension)*determinant));
-		RealMatrix xm_t = xm_matrix.transpose();
-		RealMatrix maha_distance = xm_matrix.transpose().scalarMultiply(-1/2).multiply(inverse).multiply(xm_matrix);
-		System.out.println(maha_distance.toString());
-		//Assuming maha dist returns a 1x1 matrix
-		score = prior.get(c_index)* score * Math.exp(maha_distance.getEntry(1, 1));
-		return score;
-	}
 	
-	
-	private double[][] getProbabilityArray(List<List<DenseVector>> vectors){
-		double[][] p_matrix = new double[vectors.size()][];
-		double[] p_vector;
-		for(int i = 0; i<k; i++){
-			for(int j = 0; j<vectors.get(i).size(); j++){
-				p_vector = new double[k];
-				for(int l = 0; l<k; l++){
-					p_vector[l] = calculateMembershipProb(vectors.get(i).get(j), l);
-				}
-				p_matrix[j] = p_vector;
-			}
-		}
-		return p_matrix;
-	}
-	
-	private double[] subtract(double[] v1, double[] v2) {
+	public double[] subtract(double[] v1, double[] v2) {
 		for(int i = 0; i<v2.length; i++){
 			v1[i] -= v2[i];
 		}
 		return v1;
 	}
-
+	
 }
