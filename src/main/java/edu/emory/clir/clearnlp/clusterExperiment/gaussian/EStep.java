@@ -1,11 +1,11 @@
 package edu.emory.clir.clearnlp.clusterExperiment.gaussian;
 
-import java.util.List;
-
 import org.apache.commons.math3.linear.LUDecomposition;
 import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.apache.commons.math3.stat.correlation.Covariance;
+
+import Jama.Matrix;
 
 import com.carrotsearch.hppc.cursors.IntCursor;
 
@@ -40,6 +40,7 @@ public class EStep {
 		calculateSigmas(clusters);
 	}
 
+	
 
 	//Variance of a cluster with a single point??
 	private void calculateSigmas(EStepDS clusters) {
@@ -49,14 +50,20 @@ public class EStep {
 		int[] indicies = clusters.getClusterIndicies();
 		for(int i = 0; i<indicies.length; i++){
 			size = clusters.getCluster(indicies[i]).size();
-			init_matrix = new double[dimension][size];
+			if(size==1) continue;
+			init_matrix = new double[size][dimension];
+//			init_matrix = new double[dimension][dimension];
+
 			index = 0;
 			for(IntCursor j : clusters.getCluster(indicies[i])){
-				addToColumn(init_matrix,clusters.getVector(j.value),index);
-				index++;
+				//addToColumn(init_matrix,clusters.getVector(j.value),index++);
+				init_matrix[index++] = clusters.getVector(j.value);
 			}
-			cv_matrix = new Covariance(init_matrix);
-			sigmas.put(i, cv_matrix.getCovarianceMatrix());
+			//cv_matrix = new Covariance(init_matrix,true);
+		    RealMatrix matrix = MatrixUtils.createRealMatrix(init_matrix);
+		    RealMatrix covarianceMatrix = new Covariance(matrix).getCovarianceMatrix();
+			//System.out.println(covarianceMatrix.getTrace());
+			sigmas.put(indicies[i], covarianceMatrix);
 		}
 	}
 
@@ -82,7 +89,7 @@ public class EStep {
 			for(int j = 0; j<mean.length; j++){
 				mean[j] = mean[j] / clusters.getCluster(indicies[i]).size();
 			}
-			means.put(i, mean);
+			means.put(indicies[i], mean);
 		}
 		
 	}
@@ -147,23 +154,42 @@ public class EStep {
 		return membership_vectors;
 	}
 	
-	
-	
+		
+	private Matrix toMatrix(RealMatrix x){
+		double[][] data = x.getData();
+		Matrix m = new Matrix(data);
+		
+		return m;
+		
+	}
+
+	private RealMatrix toRealMatrix(Matrix x){
+		double[][] data = x.getArray();
+		RealMatrix rm = MatrixUtils.createRealMatrix(data);
+		return rm;
+		
+	}
 	
 	
 	public double calculateMembership(double[] vector, int c_index){
 		LUDecomposition d_matrix = new LUDecomposition(sigmas.get(c_index));
-		RealMatrix inverse = d_matrix.getSolver().getInverse();
-		double[] x_mean = subtract(vector,means.get(c_index));
-		RealMatrix xm_matrix = MatrixUtils.createRowRealMatrix(x_mean);
+		if(sigmas.get(c_index)==null) return 0d;
 		double determinant = d_matrix.getDeterminant();
+		System.out.println("Determinant "+determinant);
+		RealMatrix inverse = toRealMatrix(Matrices.pinv(toMatrix(sigmas.get(c_index))));
+		double[] x_mean = subtract(vector,means.get(c_index));
+		RealMatrix xm_matrix = MatrixUtils.createColumnRealMatrix(x_mean);
 		// 1/ Sqrt of 2pi^dimension * determinant
 		double score = 1/(Math.sqrt(Math.pow(2*Math.PI, dimension)*determinant));
+		System.out.println("trans " +xm_matrix.transpose().getRowDimension()+ " " +xm_matrix.transpose().getColumnDimension());
+		System.out.println("inverse " +inverse.getRowDimension()+ " " +inverse.getColumnDimension());
+		System.out.println("xm_matrix "+xm_matrix.getRowDimension()+ " " +xm_matrix.getColumnDimension());
 		RealMatrix xm_t = xm_matrix.transpose().scalarMultiply(-1/2);
 		RealMatrix maha_distance = xm_t.multiply(inverse);
 		maha_distance = maha_distance.multiply(xm_matrix);
 		//Assuming maha dist returns a 1x1 matrix
-		System.out.println(maha_distance.getRowDimension() + " x " +maha_distance.getColumnDimension());
+		System.out.println("maha_distance "+maha_distance.getRowDimension()+ " " +maha_distance.getColumnDimension());
+		System.out.println("first part score " + score);
 		score = priors.get(c_index)* score * Math.exp(maha_distance.getTrace());
 		return score;
 	}

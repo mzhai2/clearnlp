@@ -97,7 +97,7 @@ public class SerializeClusters {
 	}
 
 
-	private double cantorPair(int cluster_index, int hierarchy) {
+	public static double cantorPair(int cluster_index, int hierarchy) {
 		double score =  ((.5)*(cluster_index+hierarchy)*(cluster_index+hierarchy+1)+hierarchy);
 		return score;
 	}
