@@ -1,52 +1,80 @@
 package edu.emory.clir.clearnlp.clusterExperiment.chameleon.graph;
 
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
+
+import com.carrotsearch.hppc.cursors.ObjectCursor;
 
 import edu.emory.clir.clearnlp.clusterExperiment.Vector.DenseVector;
 import edu.emory.clir.clearnlp.clusterExperiment.chameleon.IntDoublePair;
+import edu.emory.clir.clearnlp.collection.map.IntObjectHashMap;
+import edu.emory.clir.clearnlp.collection.pair.ObjectIntPair;
+import edu.emory.clir.clearnlp.util.IOUtils;
 
 public class KNNGraph {
 
 	private Graph sparseGraph;
 	private int K;
+	private int e_count;
 	
-	public KNNGraph(DenseVector[] tupleList, int K){
-		sparseGraph = new Graph(tupleList.length);
+	public KNNGraph(IntObjectHashMap<double[]> vectors, int K){
+		sparseGraph = new Graph(vectors.values().size());
 		this.K = K;
-		initSparseGraph(tupleList);
+		e_count = 0;
+		initSparseGraph(vectors);
 	}
 	
-	private void initSparseGraph(DenseVector[] tupleList) {
+	public void printGraph(){
+		StringBuilder sb = new StringBuilder();
+		PrintStream ps = IOUtils.createBufferedPrintStream("KNNGraph.txt");
+		for(Edge e : sparseGraph.getAllEdges()){
+			ps.println(e.getSource() +"  -> " +e.getTarget() +"  " +e.getWeight());
+		}
+		ps.flush();
+	}
+	private void initSparseGraph(IntObjectHashMap<double[]> vectors) {
 		List<IntDoublePair> neighbors;
-		for(int i = 0; i<tupleList.length; i++){
+		int key_size = vectors.getMaxKey();
+		
+		for(int i = 1; i<key_size; i++){
 			neighbors = new ArrayList<IntDoublePair>();
-			for(int j = 1; j<tupleList.length; j++){
-				add(neighbors,getCosineSimilarity(tupleList[i],tupleList[j]),j);
+			for(int j = i+1; j<key_size; j++){
+				add(neighbors,getCosineSimilarity(vectors.get(i), vectors.get(j)),j);
 			}
 			addToSparseGraph(i,neighbors);
 		}
 	}
 
 
-	private double getCosineSimilarity(DenseVector d1, DenseVector d2) {
+	public double getCosineSimilarity(double[] d1, double[] d2){
 		double similarity = 0;
 		double numerator = 0;
-		float[] f1 = d1.getFloatArray();
-		float[] f2 = d2.getFloatArray();
-		for (int i=0; i<f1.length; i++)
-			numerator+=f1[i]*f2[i];
-		double denominator = d1.euclideanNorm()* d2.euclideanNorm();
+		for(int i = 0; i<d1.length; i++){
+			numerator+=d1[i]*d2[i];
+		}
+		double denominator = getEuclideanNorm(d1)*getEuclideanNorm(d2);
 		similarity = numerator/denominator;
 		return 1-similarity;
+		
+		
 	}
 	
-	
+	private double getEuclideanNorm(double[] vector){
+		double sum = 0;
+        for (double value : vector) {
+            sum += value*value;
+        }
+        return Math.sqrt(sum);
+    }
+
 	private void addToSparseGraph(int i, List<IntDoublePair> neighbors) {
 		for(IntDoublePair pair : neighbors){
 			sparseGraph.setUndirectedEdge(i, pair.getIndex(), pair.getValue());
+			e_count++;
 		}
 	}
 
@@ -55,7 +83,7 @@ public class KNNGraph {
 	private void add(List<IntDoublePair> kneighbors, double distance, int neighbor) {
 		Comparator<IntDoublePair> c = new Comparator<IntDoublePair>(){
 			public int compare(IntDoublePair p1, IntDoublePair p2){
-				return new Double(p2.getValue()).compareTo(p1.getValue());
+				return new Double(p1.getValue()).compareTo(p2.getValue());
 			}
 		};
 		IntDoublePair temp = new IntDoublePair(neighbor,distance);
@@ -73,6 +101,7 @@ public class KNNGraph {
 	}
 
 	public int getEdgeCount() {
-		return 0;
+		return e_count;
 	}
 }
+

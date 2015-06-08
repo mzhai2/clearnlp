@@ -5,12 +5,14 @@ public class Edge {
 	private int u;
 	private int v;
 	private double w;
+//	private boolean isVisited;
 	
 	
 	public Edge(int u, int v, double w){
 		setSource(u);
 		setTarget(v);
 		setWeight(w);
+//		isVisited = false;
 	}
 
 	

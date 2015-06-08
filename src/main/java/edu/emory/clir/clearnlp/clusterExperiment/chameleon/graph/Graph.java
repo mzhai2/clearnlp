@@ -77,7 +77,7 @@ public class Graph {
 		return deque;
 	}
 	
-	private List<Edge> getIncomingEdges(int i) {
+	public List<Edge> getIncomingEdges(int i) {
 		return edges[i];
 	}
 
