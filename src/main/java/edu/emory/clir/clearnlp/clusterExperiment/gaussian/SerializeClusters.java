@@ -15,24 +15,27 @@ public class SerializeClusters {
 	private IntObjectHashMap<IntArrayList> clusters;
 	private IntObjectHashMap<double[]> dense_vectors;
 	private IntIntHashMap h_structure;
+	private IntObjectHashMap<IntArrayList> temp_clusters;
+	private IntObjectHashMap<String> tree_map;
 
 
 	public SerializeClusters(boolean h){
 		dense_vectors = new IntObjectHashMap<double[]>();
 		h_structure = new IntIntHashMap();
 		clusters = new IntObjectHashMap<IntArrayList>();
+		temp_clusters = new IntObjectHashMap<IntArrayList>();
+		tree_map = new IntObjectHashMap<String>();
 	}
 
 	public void process(File vectors, File clusters, boolean h) throws Exception{
 		readVectors(vectors);
-		readCluster(clusters,h);
 	}
 
 
 	public void readVectors(File vectors) throws Exception {
 		BufferedReader br = IOUtils.createBufferedReader(vectors);
 		String line;
-		int word_id = 0;
+		int word_id = 1;
 		double[] dense_vector;
 		int begin_index,space_index,vector_index;
 		while((line=br.readLine())!=null){
@@ -54,46 +57,57 @@ public class SerializeClusters {
 		}
 	}
 
-
-
-	public void readCluster(File cluster,boolean h) throws Exception{
+	public void readH(File cluster) throws Exception{
 		BufferedReader br = IOUtils.createBufferedReader(cluster);
 		String line;
-		IntArrayList temp_list;
-		int firstHyphen,secondHyphen,cluster_index,vector_index,h_index,hierarchy = 0;;
+		String level;
+		int firstHyphen,secondHyphen,cluster_index,vector_index,hierarchy = 0;;
 		while((line=br.readLine())!=null){
 			firstHyphen = line.indexOf('-', 0);
 			cluster_index = Integer.parseInt(line.substring(0, firstHyphen));
 			secondHyphen = line.indexOf('-', firstHyphen+1);
-			if((secondHyphen-firstHyphen)>1) hierarchy = Integer.parseInt(line.substring(firstHyphen+1, secondHyphen));
-			else hierarchy = -1;
 			vector_index = Integer.parseInt(line.substring(secondHyphen+1, line.length()));
-
-			if(!h){
-				temp_list = clusters.get(cluster_index);
-				if(temp_list!=null) temp_list.add(vector_index); 
-				else{
-					temp_list = new IntArrayList();
-					temp_list.add(vector_index);
-					clusters.put(cluster_index, temp_list);
-				}
+			if(secondHyphen-firstHyphen>1){
+				level = line.substring(firstHyphen+1, secondHyphen);
+				h_structure.put(vector_index, hierarchy);
+				addToTempCluster((int)cantorPair(cluster_index,Integer.parseInt(level)),vector_index);
+				addToTree(cluster_index,level);
 			}
 			else{
-				if(hierarchy ==-1) hierarchy = 0;
-				System.out.println(cluster_index +" " + hierarchy);
-				h_index = (int) cantorPair(cluster_index,hierarchy);
-				System.out.println(h_index);
-				temp_list = clusters.get(h_index);
-				if(temp_list!=null) temp_list.add(vector_index);
-				else{
-					temp_list = new IntArrayList();
-					temp_list.add(vector_index);
-					clusters.put(h_index, temp_list);
-				}
+				addToCluster(cluster_index,vector_index);
 			}
-
-			if(hierarchy!=-1) h_structure.put(vector_index, hierarchy);
 		}
+		
+	}
+
+	private void addToTempCluster(int cluster_index, int vector_index) {
+		IntArrayList temp_list;
+		temp_list = temp_clusters.get(cluster_index);
+		if(temp_list!=null) temp_list.add(vector_index); 
+		else{
+			temp_list = new IntArrayList();
+			temp_list.add(vector_index);
+			temp_clusters.put(cluster_index, temp_list);
+		}
+		
+	}
+	
+	private void addToCluster(int cluster_index, int vector_index){
+		IntArrayList temp_list;
+		temp_list = clusters.get(cluster_index);
+		if(temp_list!=null) temp_list.add(vector_index); 
+		else{
+			temp_list = new IntArrayList();
+			temp_list.add(vector_index);
+			clusters.put(cluster_index, temp_list);
+		}
+		
+	}
+
+	private void addToTree(int cluster_index, String level) {
+	
+
+		
 	}
 
 

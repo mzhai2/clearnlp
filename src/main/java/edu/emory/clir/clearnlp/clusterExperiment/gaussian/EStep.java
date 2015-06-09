@@ -57,6 +57,7 @@ public class EStep {
 			index = 0;
 			for(IntCursor j : clusters.getCluster(indicies[i])){
 				//addToColumn(init_matrix,clusters.getVector(j.value),index++);
+				System.out.println(j.value);
 				init_matrix[index++] = clusters.getVector(j.value);
 			}
 			//cv_matrix = new Covariance(init_matrix,true);

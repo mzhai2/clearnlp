@@ -35,13 +35,13 @@ public class EStepDS{
 	}
 	
 	
+	
 	private void initClusterIndices(){
 		List<ObjectIntPair<IntArrayList>> T = clusters.toList();
 		cluster_indices = new int[T.size()];
 		for(int i = 0; i<T.size(); i++){
 			cluster_indices[i] = (T.get(i).i);
 		}
-		
 	}
 	public int[] getClusterIndicies(){
 		return cluster_indices;
