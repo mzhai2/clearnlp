@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 import com.carrotsearch.hppc.ObjectArrayList;
 import com.carrotsearch.hppc.cursors.IntCursor;
@@ -43,7 +44,24 @@ public class Chameleon {
 		this.threshold = (alpha==1) ? threshold : 0.0;
 	}
 
+	public Chameleon(double min_size, int alpha, double threshold){
+		//sparseGraph = new KNNGraph(this.vectors,k);
+		this.min_size = min_size;
+		vectors = new IntObjectHashMap<double[]>();
+		this.alpha = alpha;
+		this.threshold = (alpha==1) ? threshold : 0.0;
+	}
+	
+	public void addVectors(double[] vector, int i){
+		vectors.put(i, vector);
+	}
 
+	public void createGraph(int K){
+		visited = new boolean[vectors.getMaxKey()];
+		sparseGraph = new KNNGraph(this.vectors,K);
+		this.min_size = min_size*vectors.size();
+
+	}
 
 
 	public void createSubClusters(){
@@ -54,9 +72,7 @@ public class Chameleon {
 			if(visited[i]) continue;
 			tempGraph = new Subgraph(currentID++);
 			recursiveDfsSearch(tempGraph, i, -1);
-			if(tempGraph.getSize()>min_size){
-				init_clusters.add(tempGraph);
-			}
+			if(tempGraph.getSize()>min_size) init_clusters.add(tempGraph);
 		}
 	}
 
@@ -121,6 +137,7 @@ public class Chameleon {
 				temp_cluster2 = otherCluster.value;
 			}
 		}
+		System.out.println(maxMetric+" "+threshold);
 		if (maxMetric > threshold) {
 			removeCluster(temp_cluster2,clusterList);
 			connectClusterToCluster(temp_cluster1, temp_cluster2);
@@ -148,13 +165,10 @@ public class Chameleon {
 
 
 
-	//Find closest pair of edges and form a new edge
 	private void connectClusterToCluster(Subgraph c1, Subgraph c2) {
-		List<Edge> closestEdges = calculateNearestEdges(c1,c2,2);
+		List<Edge> closestEdges = calculateNearestEdges(c1,c2,1);
 		c1.addAll(closestEdges);
 	}
-
-
 
 
 	private List<Edge> calculateNearestEdges(Subgraph c1, Subgraph c2, int k) {
@@ -289,48 +303,35 @@ public class Chameleon {
 			ps.println(sb.toString());
 		}
 		ps.flush();
+	}
+
+	public void printWordClusters(Map<Integer, String> word_map) {
+		PrintStream ps = IOUtils.createBufferedPrintStream("WordClusters.txt");
+		StringBuilder sb = new StringBuilder();
+		IntHashSet vertices;
+		int source;
+		int target;
+		for(ObjectCursor<Subgraph> cluster : result_clusters){
+			sb.setLength(0);
+			vertices = new IntHashSet();
+			for(ObjectCursor<Edge> e : cluster.value.getEdges()){
+				source = e.value.getSource();
+				target = e.value.getTarget();
+				if(!vertices.contains(source)){
+					sb.append(word_map.get(source));
+					sb.append(" ");
+					vertices.add(source);
+				}
+				if(!vertices.contains(target)){
+					sb.append(word_map.get(target));
+					sb.append(" ");
+					vertices.add(target);
+				}
+			}
+			ps.println(sb.toString());
+		}
+		ps.flush();
+	}
+
+		
 	} 
-
-
-
-
-	//
-	//	public void printMetisGraph(){
-	//		PrintStream ps = IOUtils.createBufferedPrintStream("HmetisGraph.txt");
-	//		StringBuilder sb = new StringBuilder();
-	//		sb.append(vectors.size()-1).append(" ").append(sparseGraph.getEdgeCount()).append(" ").append("001");
-	//		ps.println(sb.toString());
-	//		List<Edge> edges;
-	//		for(int i = 1; i<vectors.size()-1; i++){
-	//			edges = sparseGraph.getGraph().getIncomingEdges(i);
-	//			sb.setLength(0);
-	//			sb.append("  ");
-	//		for(int j = 0; j<edges.size(); j++){
-	//			if(j!=0) sb.append(" ");
-	//			sb.append(edges.get(j).getSource());
-	//			sb.append(" ");
-	//			sb.append(String.format("%f", edges.get(j).getWeight()));
-	//		}
-	//		ps.println(sb.toString());
-	//		}
-	//		
-	//		ps.flush();
-	//		ps.close();
-	//		}
-	//
-	//
-	//
-	//
-	//	public void readMetisSubGraph(String initialPartition){
-	//		BufferedReader br = IOUtils.createBufferedReader(initialPartition);
-	//		
-	//	}
-
-
-
-
-
-
-
-
-}

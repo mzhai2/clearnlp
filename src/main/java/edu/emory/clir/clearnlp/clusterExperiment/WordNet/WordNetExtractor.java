@@ -274,15 +274,10 @@ public class WordNetExtractor {
 		
 	}
 	
-	
-	
-	
-	
-	
 
 	
 	static public void main(String[] args) throws Exception{
-		WordNetExtractor wne = new WordNetExtractor(3, 2, 1, "n");
+		WordNetExtractor wne = new WordNetExtractor(3, 2, 1, args[1]);
 		wne.readWords(args[0]);
 		wne.createSenseMap();
 		wne.createHyperMap();

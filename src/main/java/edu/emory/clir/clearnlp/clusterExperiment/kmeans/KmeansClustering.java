@@ -22,9 +22,9 @@ import edu.emory.clir.clearnlp.util.MathUtils;
 
 public class KmeansClustering extends AbstractCluster {
 
+	public boolean user_input;
 	final protected int K;
 	final protected int NUM_THREADS;
-	final protected int MAX_ITERATIONS;
 	final protected double RSS_THRESHOLD;
 	final protected int DIMENSIONS;
 	volatile double[] D2;
@@ -32,11 +32,10 @@ public class KmeansClustering extends AbstractCluster {
 	private String initMethod;
 
 
-	public KmeansClustering(int k, int maxIterations, double rssThreshold, int numThreads, int dimensions, String distance, String init)
+	public KmeansClustering(int k, double rssThreshold, int numThreads, int dimensions, String distance, String init)
 	{
 		super();
 		K = k;
-		MAX_ITERATIONS = maxIterations;
 		RSS_THRESHOLD  = rssThreshold;
 		NUM_THREADS    = numThreads;
 		DIMENSIONS = dimensions;
@@ -56,18 +55,48 @@ public class KmeansClustering extends AbstractCluster {
 		if(initMethod.equalsIgnoreCase("Regular")) centroids = initialization();
 		if(centroids==null) BinUtils.LOG.info("Init Method is wrong. Please Enter: RandomCluster or RandomCentroid or Regular");
 		double previousRSS;
-		for(int i = 0; i<MAX_ITERATIONS; i++){
+		List<Double> oscillation = new ArrayList<>();
+		for(int i = 0; i<Integer.MAX_VALUE; i++){
 			BinUtils.LOG.info(String.format("Iteration: %d\n", i));
 			previousRSS = current.d;
 			current = maximization(centroids);
 			centroids = expectation(current.o);
 			BinUtils.LOG.info("Current RSS: " +current.d +" PreviousRSS " +previousRSS + " Difference is " +Math.abs(current.d - previousRSS));
-			if(Math.abs(current.d - previousRSS) < RSS_THRESHOLD) break;
+			oscillation.add(current.d-previousRSS);
+			if(detectOscillation(oscillation)) break;
+			if(current.d - previousRSS < RSS_THRESHOLD) break;
 		}
-
 
 		return current.o;
 	}
+
+	
+
+
+	private boolean detectOscillation(List<Double> oscillation) {
+		if(oscillation.size()<6) return false;
+		if(oscillation.size()>6){
+			for(int i = 0; i<oscillation.size()-6; i++){
+				oscillation.remove(i);
+			}
+		}
+		int i= 0;
+		int prev_pos = -1;
+		int prev_neg = -1;
+		int osc_count = 0;
+		while(i <oscillation.size()){
+			if(Math.abs(prev_neg-prev_pos)==1) osc_count++;
+			if(Math.signum(oscillation.get(i))==-1) prev_neg = i;
+			if(Math.signum(oscillation.get(i))==1) prev_pos = i;
+			i++;
+		}
+		System.out.println(osc_count);
+		if(osc_count==5) return true;
+		oscillation.remove(0);
+		return false;
+	}
+
+
 
 	private List<double[]> initRandomCentroids(){
 		List<double[]> randomCentroids = new ArrayList<>();

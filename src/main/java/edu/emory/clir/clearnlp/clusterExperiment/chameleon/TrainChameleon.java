@@ -11,16 +11,18 @@ import edu.emory.clir.clearnlp.util.IOUtils;
 public class TrainChameleon {
 
 	static public void main(String[] args) throws Exception{
-		int K = Integer.parseInt(args[0]);
-		double minSize = Double.parseDouble(args[1]);
-		int alpha = Integer.parseInt(args[2]);
-		double threshold = Double.parseDouble(args[3]);
-		Chameleon c = new Chameleon("DenseVector", K, minSize, alpha, threshold);
+		String vectorFile = args[0];
+		String wordMap = args[1];
+		int K = Integer.parseInt(args[2]);
+		double minSize = Double.parseDouble(args[3]);
+		int alpha = Integer.parseInt(args[4]);
+		double threshold = Double.parseDouble(args[5]);
+		Chameleon c = new Chameleon(vectorFile, K, minSize, alpha, threshold);
 		long start = System.currentTimeMillis();
 		c.createSubClusters();
 		c.mergeSubCluster();
 		long end = System.currentTimeMillis()-start;
-		c.printWordClusters("WordMap");
+		c.printWordClusters(wordMap);
 		System.out.println(end/1000+ " Seconds");
 	}
 	
