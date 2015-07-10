@@ -71,6 +71,6 @@ abstract public class AbstractAdaGrad extends AbstractOnlineTrainer
 
 	protected String getTrainerInfo(String type)
 	{
-		return String.format("AdaGrad-%s: alpha = %4.3f, rho = %4.3f, rho = %4.3f, average = %b", type, d_alpha, d_rho, d_bias, average());
+		return String.format("AdaGrad-%s: alpha = %4.3f, rho = %4.3f, bias = %4.3f, average = %b", type, d_alpha, d_rho, d_bias, average());
 	}
 }
